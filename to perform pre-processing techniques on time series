@@ -1,0 +1,157 @@
+# ============================================================
+# PROGRAM 3
+# Aim: To Perform Pre-processing Techniques on Time Series Data
+# Dataset: Fashion_Retail_Sales.csv
+# ============================================================
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+
+# ------------------------------------------------------------
+# Step 1: Load Dataset
+# ------------------------------------------------------------
+
+# For VS Code / Jupyter
+file_path = "Fashion_Retail_Sales.csv"
+
+# If dataset is inside a folder:
+# file_path = "datasets/Fashion_Retail_Sales.csv"
+
+# For Google Colab:
+# file_path = "/content/Fashion_Retail_Sales.csv"
+
+try:
+    data = pd.read_csv(file_path)
+    print("Dataset Loaded Successfully.\n")
+except FileNotFoundError:
+    print("Error: Dataset not found.")
+    exit()
+
+# ------------------------------------------------------------
+# Step 2: Basic Data Cleaning
+# ------------------------------------------------------------
+
+data.columns = data.columns.str.strip()
+
+# Convert Date Column
+data["Date Purchase"] = pd.to_datetime(
+    data["Date Purchase"],
+    format="%d-%m-%Y",
+    errors="coerce"
+)
+
+# Fill missing dates
+data["Date Purchase"] = data["Date Purchase"].ffill()
+
+# Remove duplicate records
+data = data.drop_duplicates()
+
+# Fill missing values
+for col in data.columns:
+    if data[col].dtype == "object":
+        data[col] = data[col].fillna(data[col].mode()[0])
+    else:
+        data[col] = data[col].fillna(data[col].median())
+
+# ------------------------------------------------------------
+# Step 3: Set Time Series Index
+# ------------------------------------------------------------
+
+data.set_index("Date Purchase", inplace=True)
+
+# Sort by date
+data.sort_index(inplace=True)
+
+# ------------------------------------------------------------
+# Step 4: Aggregate Monthly Sales
+# ------------------------------------------------------------
+
+ts_data = data["Purchase Amount (USD)"].resample("ME").sum()
+
+print("=" * 60)
+print("MONTHLY SALES")
+print("=" * 60)
+
+print(ts_data.head())
+
+# ------------------------------------------------------------
+# Step 5: Log Transformation
+# (Applied BEFORE Scaling to avoid log of negative values)
+# ------------------------------------------------------------
+
+ts_log = np.log1p(ts_data)
+
+# ------------------------------------------------------------
+# Step 6: Standardization
+# ------------------------------------------------------------
+
+scaler = StandardScaler()
+
+scaled = scaler.fit_transform(
+    ts_log.values.reshape(-1, 1)
+)
+
+ts_scaled = pd.DataFrame(
+    scaled,
+    index=ts_log.index,
+    columns=["Scaled Sales"]
+)
+
+# ------------------------------------------------------------
+# Step 7: Differencing
+# ------------------------------------------------------------
+
+ts_scaled["Differenced"] = ts_scaled["Scaled Sales"].diff()
+
+# Remove missing value after differencing
+ts_scaled.dropna(inplace=True)
+
+# ------------------------------------------------------------
+# Step 8: Display Preprocessed Data
+# ------------------------------------------------------------
+
+print("\nPreprocessed Time Series Data")
+print("=" * 60)
+
+print(ts_scaled.head())
+
+# ------------------------------------------------------------
+# Step 9: Plot Results
+# ------------------------------------------------------------
+
+plt.figure(figsize=(12,6))
+
+plt.plot(
+    ts_scaled.index,
+    ts_scaled["Scaled Sales"],
+    label="Scaled Data"
+)
+
+plt.plot(
+    ts_scaled.index,
+    ts_scaled["Differenced"],
+    label="Differenced Data"
+)
+
+plt.title("Preprocessed Time Series")
+plt.xlabel("Date")
+plt.ylabel("Scaled Value")
+
+plt.grid(True)
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+# ------------------------------------------------------------
+# Step 10: Summary Statistics
+# ------------------------------------------------------------
+
+print("\nSummary Statistics")
+print("=" * 60)
+
+print(ts_scaled.describe())
+
+print("\nProgram Executed Successfully.")
